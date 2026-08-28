@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Production builds
+.next/
+out/
+
+# Environment variables
+.env*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Icon?
+desktop.ini
+
+# Logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Next.js build outputs
+dist/
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
