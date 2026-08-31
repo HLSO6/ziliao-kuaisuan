@@ -1,19 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 
 export default function Home() {
-  const [progress, setProgress] = useState({ completed: 0, total: 8 });
-
-  useEffect(() => {
-    // Load progress from localStorage
-    const savedProgress = localStorage.getItem('lessonProgress');
-    if (savedProgress) {
-      setProgress(JSON.parse(savedProgress));
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-lightGreen">
       <div className="max-w-md mx-auto bg-white min-h-screen flex flex-col">
@@ -23,78 +12,50 @@ export default function Home() {
           <p className="text-center text-secondaryText mt-2">把资料分析，拆开练。</p>
         </header>
 
-        <main className="flex-grow p-5 space-y-6">
-          {/* Today's Recommendation Card */}
-          <div className="bg-gradient-to-br from-primary to-[#4a9c6d] rounded-2xl p-6 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
-            <div className="flex items-center mb-3">
-              <div className="bg-white bg-opacity-20 p-2 rounded-lg">
-                <h2 className="text-xl font-semibold">📚 现期与基期</h2>
+        <main className="flex-grow p-5">
+          {/* Grid container for modules */}
+          <div className="grid grid-cols-3 gap-4">
+            
+            {/* Speed Training Card */}
+            <Link href="/speed" className="col-span-2 bg-gradient-to-br from-[#FF9800] to-[#F57C00] rounded-2xl p-4 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
+              <div className="bg-white bg-opacity-20 p-2 rounded-lg mb-2">
+                <h2 className="text-lg font-semibold text-center">⚡ 基础速算</h2>
               </div>
-            </div>
-            <p className="mb-2 opacity-90">资料分析的第一步</p>
-            <p className="mb-6 text-sm opacity-80">先分清谁是现期，谁是基期，再开始计算。</p>
-            <Link href="/lessons" className="inline-block bg-white text-primary px-6 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-all shadow-md">
-              开始学习 →
+              <p className="text-xs opacity-90 text-center">四则运算</p>
             </Link>
-          </div>
 
-          {/* Speed Training Card */}
-          <div className="bg-gradient-to-br from-[#FF9800] to-[#F57C00] rounded-2xl p-6 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
-            <div className="flex items-center mb-3">
-              <div className="bg-white bg-opacity-20 p-2 rounded-lg">
-                <h2 className="text-xl font-semibold">⚡ 速算训练</h2>
+            {/* Percentage Conversion Card */}
+            <Link href="/percentage" className="bg-gradient-to-br from-[#6A5ACD] to-[#5D4F8C] rounded-2xl p-4 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
+              <div className="bg-white bg-opacity-20 p-2 rounded-lg mb-2">
+                <h2 className="text-lg font-semibold text-center">🔢</h2>
               </div>
-            </div>
-            <p className="mb-2 opacity-90">自己选题，随机训练</p>
-            <p className="mb-6 text-sm opacity-80">乘法、除法、加减，自由选择数字范围和题量。</p>
-            <Link href="/speed" className="inline-block bg-white text-[#FF9800] px-6 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-all shadow-md">
-              开始训练 →
+              <p className="text-xs opacity-90 text-center">百化分</p>
             </Link>
-          </div>
 
-          {/* Percentage Conversion Card */}
-          <div className="bg-gradient-to-br from-[#6A5ACD] to-[#5D4F8C] rounded-2xl p-6 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
-            <div className="flex items-center mb-3">
-              <div className="bg-white bg-opacity-20 p-2 rounded-lg">
-                <h2 className="text-xl font-semibold">🔢 百分数互化</h2>
+            {/* Square Training Card */}
+            <Link href="/square" className="bg-gradient-to-br from-[#FF5722] to-[#E64A19] rounded-2xl p-4 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
+              <div className="bg-white bg-opacity-20 p-2 rounded-lg mb-2">
+                <h2 className="text-lg font-semibold text-center">2️⃣</h2>
               </div>
-            </div>
-            <p className="mb-2 opacity-90">百化分 · 分化百</p>
-            <p className="mb-6 text-sm opacity-80">把常见百分数快速转换成分数，提高资料分析计算速度。</p>
-            <Link href="/percentage" className="inline-block bg-white text-[#6A5ACD] px-6 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-all shadow-md">
-              开始练习 →
+              <p className="text-xs opacity-90 text-center">11-15平方</p>
             </Link>
-          </div>
 
-          {/* Learning Progress */}
-          <div className="bg-cardBg rounded-2xl p-6 shadow-sm border border-lightGreenAccent">
-            <h2 className="text-lg font-semibold text-darkText mb-4">学习进度</h2>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-secondaryText">已学习</span>
-              <span className="font-medium text-primary">{progress.completed} / {progress.total}</span>
-            </div>
-            <div className="w-full bg-lightGreenAccent rounded-full h-3 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-primary to-[#4a9c6d] h-full rounded-full transition-all duration-500 ease-out" 
-                style={{ width: `${(progress.completed / progress.total) * 100}%` }}
-              ></div>
-            </div>
-            <div className="mt-4 text-center">
-              <div className="inline-block bg-lightGreen rounded-full px-4 py-2 text-sm text-secondaryText">
-                {progress.completed === 0 ? '开始学习第一个知识点吧！' : progress.completed >= progress.total ? '恭喜完成所有知识点！' : '坚持学习，你会越来越棒！'}
+            {/* Fraction Compare Card */}
+            <Link href="/fraction-compare" className="bg-gradient-to-br from-[#9C27B0] to-[#7B1FA2] rounded-2xl p-4 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
+              <div className="bg-white bg-opacity-20 p-2 rounded-lg mb-2">
+                <h2 className="text-lg font-semibold text-center">⚖️</h2>
               </div>
-            </div>
-          </div>
-
-          {/* Daily Practice */}
-          <div className="bg-cardBg rounded-2xl p-6 shadow-sm border border-lightGreenAccent">
-            <div className="flex items-center mb-2">
-              <h2 className="text-lg font-semibold text-darkText">📝 每日一题</h2>
-            </div>
-            <p className="text-secondaryText mb-4">用1分钟，练一个知识点。</p>
-            <Link href="/practice" className="w-full bg-gradient-to-r from-primary to-[#4a9c6d] text-white py-4 rounded-xl text-center font-medium hover:opacity-90 transition-all block shadow-md">
-              开始答题 →
+              <p className="text-xs opacity-90 text-center">分数比大小</p>
             </Link>
+
+            {/* Days-in-Month Calculation Card */}
+            <Link href="/date-guess" className="col-span-2 bg-gradient-to-br from-[#4CAF50] to-[#388E3C] rounded-2xl p-4 text-white shadow-lg transform transition-transform duration-200 hover:scale-[1.02]">
+              <div className="bg-white bg-opacity-20 p-2 rounded-lg mb-2">
+                <h2 className="text-lg font-semibold text-center">📅 月天数</h2>
+              </div>
+              <p className="text-xs opacity-90 text-center">推算年月天数</p>
+            </Link>
+
           </div>
         </main>
 

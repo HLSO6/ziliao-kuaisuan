@@ -2,235 +2,197 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { generateQuestions, TrainingConfig, DigitLength } from '@/lib/questionGenerator';
+import Link from 'next/link';
+
+type Operation = 'multiply' | 'divide' | 'add' | 'subtract';
+
+const getRandomInt = (min: number, max: number) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+const generateQuestion = (operation: Operation, firstDigits: number, secondDigits: number) => {
+  let num1, num2, answer;
+  if (operation === 'add') {
+    num1 = getRandomInt(Math.pow(10, firstDigits - 1), Math.pow(10, firstDigits) - 1);
+    num2 = getRandomInt(Math.pow(10, secondDigits - 1), Math.pow(10, secondDigits) - 1);
+    answer = num1 + num2;
+  } else if (operation === 'subtract') {
+    num1 = getRandomInt(Math.pow(10, firstDigits - 1), Math.pow(10, firstDigits) - 1);
+    num2 = getRandomInt(Math.pow(10, secondDigits - 1), Math.pow(10, secondDigits) - 1);
+    // Ensure positive result
+    if (num1 < num2) [num1, num2] = [num2, num1];
+    answer = num1 - num2;
+  } else if (operation === 'multiply') {
+    num1 = getRandomInt(Math.pow(10, firstDigits - 1), Math.pow(10, firstDigits) - 1);
+    num2 = getRandomInt(Math.pow(10, secondDigits - 1), Math.pow(10, secondDigits) - 1);
+    answer = num1 * num2;
+  } else { // divide
+    // Generate division question with integer result
+    const result = getRandomInt(Math.pow(10, Math.min(firstDigits, secondDigits) - 1), Math.pow(10, Math.min(firstDigits, secondDigits)) - 1);
+    num2 = getRandomInt(Math.pow(10, secondDigits - 1), Math.pow(10, secondDigits) - 1);
+    num1 = result * num2; // So that num1 / num2 = result
+    answer = result;
+  }
+  return { num1, num2, operation, answer };
+};
 
 export default function SpeedPracticePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [config, setConfig] = useState<TrainingConfig | null>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<{questionIndex: number, userAnswer: number, isCorrect: boolean}[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 获取配置参数
+  const operation = (searchParams.get('operation') || 'multiply') as Operation;
+  const firstDigitsParam = searchParams.get('firstDigits');
+  const secondDigitsParam = searchParams.get('secondDigits');
+  const questionCount = parseInt(searchParams.get('questionCount') || '10');
+
+  const firstDigits = firstDigitsParam === 'random' ? 'random' : parseInt(firstDigitsParam || '2');
+  const secondDigits = secondDigitsParam === 'random' ? 'random' : parseInt(secondDigitsParam || '2');
+
+  const [currentQuestion, setCurrentQuestion] = useState({ num1: 0, num2: 0, operation: 'add' as Operation, answer: 0 });
+  const [userInput, setUserInput] = useState('');
+  const [feedback, setFeedback] = useState<{correct: boolean, correctAnswer: number} | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(10); // Example: 10 seconds per question
+  const [score, setScore] = useState(0);
+  const [times, setTimes] = useState<number[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    // 从URL参数构建配置对象
-    const operation = searchParams.get('operation') as 'multiply' | 'divide' | 'add' | 'subtract';
-    const firstDigitsParam = searchParams.get('firstDigits');
-    const secondDigitsParam = searchParams.get('secondDigits');
-    const questionCount = parseInt(searchParams.get('questionCount') || '20');
-    
-    let firstDigits: DigitLength = 2;
-    let secondDigits: DigitLength = 2;
-    
-    if (firstDigitsParam === 'random') {
-      firstDigits = 'random';
-    } else {
-      const num = parseInt(firstDigitsParam || '2');
-      if ([1, 2, 3, 4].includes(num)) {
-        firstDigits = num as DigitLength;
-      } else {
-        firstDigits = 2; // 默认值
-      }
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
-    
-    if (secondDigitsParam === 'random') {
-      secondDigits = 'random';
-    } else {
-      const num = parseInt(secondDigitsParam || '2');
-      if ([1, 2, 3, 4].includes(num)) {
-        secondDigits = num as DigitLength;
-      } else {
-        secondDigits = 2; // 默认值
-      }
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    if (timeLeft <= 0 && feedback === null) {
+      // Time's up for this question
+      handleAnswerSubmit(); // Submit with empty answer
     }
-    
-    const newConfig: TrainingConfig = {
+  }, [timeLeft, feedback]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (timeLeft > 0 && feedback === null) {
+      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [timeLeft, feedback]);
+
+  useEffect(() => {
+    // Generate first question
+    const genFirstQ = generateQuestion(
       operation,
-      firstDigits,
-      secondDigits,
-      questionCount
-    };
-    
-    setConfig(newConfig);
-    sessionStorage.setItem('speedTrainingConfig', JSON.stringify(newConfig));
-    
-    // 生成题目
-    const generatedQuestions = generateQuestions(newConfig);
-    setQuestions(generatedQuestions);
-    
-    // 开始计时
-    const startTimeValue = Date.now();
-    setStartTime(startTimeValue);
-    
-    // 设置计时器
-    timerRef.current = setInterval(() => {
-      setCurrentTime(Math.floor((Date.now() - startTimeValue) / 1000));
-    }, 1000);
-  }, [searchParams]);
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
+      typeof firstDigits === 'number' ? firstDigits : getRandomInt(1, 4),
+      typeof secondDigits === 'number' ? secondDigits : getRandomInt(1, 4)
+    );
+    setCurrentQuestion(genFirstQ);
   }, []);
 
-  const handleSubmit = () => {
-    if (!questions[currentQuestionIndex]) return;
-    
-    const correctAnswer = questions[currentQuestionIndex].answer;
-    const userAnswerNum = parseInt(userAnswer);
-    const isAnswerCorrect = userAnswerNum === correctAnswer;
-    
-    setIsCorrect(isAnswerCorrect);
-    setSubmitted(true);
-    
-    // 记录用户答案
-    const newUserAnswer = {
-      questionIndex: currentQuestionIndex,
-      userAnswer: userAnswerNum,
-      isCorrect: isAnswerCorrect
-    };
-    
-    setUserAnswers(prev => [...prev, newUserAnswer]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserInput(e.target.value);
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setUserAnswer('');
-      setSubmitted(false);
-      setIsCorrect(null);
-    } else {
-      // 结束训练，跳转到结果页面
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+  const handleAnswerSubmit = () => {
+    const userAnswer = parseFloat(userInput);
+    const isCorrect = Math.abs(userAnswer - currentQuestion.answer) < 0.001; // Tolerance for floats
+
+    if (isCorrect) {
+      setScore(prev => prev + 1);
+    }
+    const timeUsed = 10 - timeLeft; // Assuming 10s per question
+    setTimes(prev => [...prev, timeUsed]);
+    setFeedback({ correct: isCorrect, correctAnswer: currentQuestion.answer });
+
+    setTimeout(() => {
+      if (currentIndex < questionCount - 1) {
+        const genNextQ = generateQuestion(
+          operation,
+          typeof firstDigits === 'number' ? firstDigits : getRandomInt(1, 4),
+          typeof secondDigits === 'number' ? secondDigits : getRandomInt(1, 4)
+        );
+        setCurrentQuestion(genNextQ);
+        setCurrentIndex(prev => prev + 1);
+        setUserInput('');
+        setFeedback(null);
+        setTimeLeft(10); // Reset timer
+      } else {
+        // Quiz finished, calculate and store results
+        const results = {
+          score,
+          total: questionCount,
+          times,
+          operation,
+          firstDigits: firstDigitsParam,
+          secondDigits: secondDigitsParam,
+        };
+        sessionStorage.setItem('speedQuizResult', JSON.stringify(results));
+        router.push('/speed/result');
       }
-      
-      // 计算结果
-      const correctCount = userAnswers.filter(answer => answer.isCorrect).length;
-      const finalCorrectCount = isCorrect ? correctCount + 1 : correctCount;
-      
-      const results = {
-        config: config,
-        questions: questions,
-        answers: [...userAnswers, ...(isCorrect !== null ? [{
-          questionIndex: currentQuestionIndex,
-          userAnswer: parseInt(userAnswer),
-          isCorrect: isCorrect
-        }] : [])],
-        timeSpent: currentTime,
-        totalQuestions: questions.length,
-        correctCount: finalCorrectCount
-      };
-      
-      sessionStorage.setItem('speedTrainingResults', JSON.stringify(results));
-      router.push('/speed/result');
+    }, 1500);
+  };
+
+  const getOperationSymbol = (op: Operation) => {
+    switch(op) {
+      case 'multiply': return '×';
+      case 'divide': return '÷';
+      case 'add': return '+';
+      case 'subtract': return '-';
+      default: return op;
     }
   };
-
-  // 计算进度
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-
-  if (!config || questions.length === 0) {
-    return (
-      <div className="min-h-screen bg-lightGreen flex items-center justify-center">
-        <div className="max-w-md mx-auto bg-white rounded-xl p-6">
-          <p className="text-center text-secondaryText">正在加载训练内容...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentQuestion = questions[currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-lightGreen">
       <div className="max-w-md mx-auto bg-white min-h-screen flex flex-col">
         {/* Header */}
-        <header className="p-4 border-b border-lightGreenAccent sticky top-0 bg-white z-10">
-          <div className="flex justify-between items-center">
-            <button onClick={() => router.back()} className="text-primary">
-              ← 返回
-            </button>
-            <div className="text-secondaryText">⏱ {Math.floor(currentTime / 60)}:{String(currentTime % 60).padStart(2, '0')}</div>
-          </div>
-          <div className="mt-3">
-            <div className="flex justify-between text-sm text-secondaryText mb-1">
-              <span>第 {currentQuestionIndex + 1} / {questions.length} 题</span>
-            </div>
-            <div className="w-full bg-lightGreenAccent rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
+        <header className="p-4 border-b border-lightGreenAccent">
+          <Link href="/speed" className="text-primary font-medium flex items-center">
+            ← 返回配置
+          </Link>
         </header>
 
-        <main className="flex-grow p-6">
-          <div className="bg-cardBg rounded-2xl p-6 shadow-sm border border-lightGreenAccent text-center">
-            <div className="text-3xl font-bold text-darkText mb-8 min-h-[60px] flex items-center justify-center">
-              {currentQuestion?.displayQuestion.replace(' = ?', '')}
+        <main className="flex-grow p-6 flex flex-col items-center justify-center">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-darkText">⚡ 基础速算</h1>
+            <p className="text-secondaryText">第 {currentIndex + 1} / {questionCount} 题</p>
+            <div className="mt-2 text-lg font-mono text-primary">{timeLeft}s</div>
+          </div>
+
+          <div className="bg-cardBg rounded-xl p-8 shadow-sm border border-lightGreenAccent w-full max-w-xs text-center">
+            <div className="text-4xl font-bold text-darkText mb-6">
+              {currentQuestion.num1} {getOperationSymbol(currentQuestion.operation)} {currentQuestion.num2} = ?
             </div>
-            
-            {!submitted ? (
-              <div className="space-y-4">
-                <input
-                  type="number"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  placeholder="请输入答案"
-                  className="w-full p-4 border border-lightGreenAccent rounded-xl text-center text-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                  autoFocus
-                />
-                <button
-                  className={`w-full py-4 rounded-xl font-medium ${
-                    userAnswer 
-                      ? 'bg-primary text-white hover:bg-opacity-90' 
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }`}
-                  onClick={handleSubmit}
-                  disabled={!userAnswer}
-                >
-                  提交答案
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className={`p-4 rounded-lg ${
-                  isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
-                  {isCorrect ? '✓ 回答正确' : '✗ 回答错误'}
-                </div>
-                
-                {!isCorrect && (
-                  <div className="space-y-2">
-                    <p className="text-secondaryText">你的答案：</p>
-                    <p className="font-medium text-darkText text-xl">{userAnswer}</p>
-                    <p className="text-secondaryText">正确答案：</p>
-                    <p className="font-medium text-darkText text-xl">{currentQuestion.answer}</p>
-                  </div>
-                )}
-                
-                <button
-                  className="w-full bg-primary text-white py-4 rounded-xl font-medium hover:bg-opacity-90"
-                  onClick={handleNext}
-                >
-                  {currentQuestionIndex < questions.length - 1 ? '下一题 →' : '查看结果'}
-                </button>
+
+            <input
+              ref={inputRef}
+              type="number"
+              value={userInput}
+              onChange={handleInputChange}
+              className="w-full p-4 border-2 border-primary rounded-lg text-center text-xl mb-4"
+              placeholder="输入答案"
+              disabled={!!feedback}
+              onKeyDown={(e) => e.key === 'Enter' && handleAnswerSubmit()}
+            />
+
+            {feedback && (
+              <div className={`p-4 rounded-lg text-center mb-4 ${
+                feedback.correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {feedback.correct ? '✓ 正确!' : `✗ 错误，正确答案是 ${feedback.correctAnswer}`}
               </div>
             )}
+
+            <button
+              className={`w-full py-3 rounded-lg font-medium ${
+                userInput
+                  ? 'bg-primary text-white hover:bg-opacity-90'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              }`}
+              onClick={handleAnswerSubmit}
+              disabled={!userInput || !!feedback}
+            >
+              {feedback ? '下一题...' : '提交'}
+            </button>
           </div>
         </main>
 
